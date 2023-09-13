@@ -1,0 +1,53 @@
+DATABASE OPTIMIZATION
+
+Suppose we have a hypothetical database with a "Customers" table and a "Orders" table. We want to retrieve specific data efficiently
+
+
+For Scenario 1: Retrieve all customers who made an order in the last 30 days including their order count.
+
+
+LINQ Query: 
+
+var thirtyDaysAgo = DateTime.UtcNow.AddDays(-30);
+var customersWithOrderCount = dbContext.Customers
+    .Where(c => c.Orders.Any(o => o.OrderDate >= thirtyDaysAgo))
+    .Select(c => new
+    {
+        CustomerId = c.Id,
+        CustomerName = c.Name,
+        OrderCount = c.Orders.Count(o => o.OrderDate >= thirtyDaysAgo)
+    })
+    .ToList();
+
+
+SQL Query:
+
+SELECT c.Id AS CustomerId, c.Name AS CustomerName, COUNT(o.Id) AS OrderCount
+FROM Customers c
+INNER JOIN Orders o ON c.Id = o.CustomerId
+WHERE o.OrderDate >= DATEADD(day, -30, GETUTCDATE())
+GROUP BY c.Id, c.Name;
+
+
+
+
+Scenario 2: Retrieve the top 10 customers with the highest order totals.
+
+LINQ Query:
+
+var topCustomers = dbContext.Customers
+    .OrderByDescending(c => c.Orders.Sum(o => o.TotalAmount))
+    .Take(10)
+    .ToList();
+
+SQL Query: 
+
+SELECT TOP 10 c.*
+FROM Customers c
+INNER JOIN (
+    SELECT CustomerId, SUM(TotalAmount) AS TotalOrderAmount
+    FROM Orders
+    GROUP BY CustomerId
+) o ON c.Id = o.CustomerId
+ORDER BY o.TotalOrderAmount DESC;
+
